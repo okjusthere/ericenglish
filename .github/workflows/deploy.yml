@@ -1,0 +1,39 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: production
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || vars.CLOUDFLARE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.4.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: cp .dev.vars.example .dev.vars
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build
+      - run: pnpm db:migrate:remote
+      - run: pnpm db:seed:remote
+      - run: pnpm exec wrangler deploy
+      - name: Verify owner-only Access boundary
+        run: |
+          test -n "$PRODUCTION_URL"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 "$PRODUCTION_URL/health")"
+          test "$status" != "200"
+          echo "Unauthenticated production access denied with HTTP $status. Owner-authenticated functional smoke is the manual production-environment approval gate."

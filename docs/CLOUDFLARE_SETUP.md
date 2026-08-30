@@ -61,4 +61,4 @@ The production hostname is `english.diypokecard.com`. It is a Worker custom-doma
 
 ## GitHub
 
-Set repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, and repository variable `PRODUCTION_URL=https://english.diypokecard.com`. CI verifies that unauthenticated traffic is denied. The owner-authenticated functional smoke is a manual production-environment gate because adding a service token would violate the exact-owner policy. No upstream AI key is required for the current Workers AI mode.
+Set repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, plus repository variables `PRODUCTION_URL=https://english.diypokecard.com` and `CLOUDFLARE_DEPLOY_ENABLED=true`. Until the enable flag exists, pushes still run CI but skip automatic Cloudflare deployment; `workflow_dispatch` remains available for an intentional manual run. Deployment verifies that unauthenticated traffic is denied. The owner-authenticated functional smoke is a manual production-environment gate because adding a service token would violate the exact-owner policy. No upstream AI key is required for the current Workers AI mode.
