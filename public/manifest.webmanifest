@@ -1,0 +1,12 @@
+{
+  "name": "Eric English OS",
+  "short_name": "English OS",
+  "description": "Private daily active-English training system",
+  "start_url": "/today",
+  "display": "standalone",
+  "background_color": "#f2eee5",
+  "theme_color": "#17231f",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,15 @@
+import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
+import { evaluateSpeaking, persistCorrections } from '../services/evaluation';
+import { json } from '../services/db';
+
+interface Params { sessionId:string; }
+export class SessionAnalysisWorkflow extends WorkflowEntrypoint<Env,Params>{
+  async run(event:WorkflowEvent<Params>,step:WorkflowStep){
+    const sessionId=event.payload.sessionId;
+    await step.do('claim idempotent analysis job',async()=>{await this.env.DB.prepare(`INSERT OR IGNORE INTO job_runs(id,job_type,idempotency_key,status) VALUES(?,'session_analysis',?,'processing')`).bind(crypto.randomUUID(),`session:${sessionId}`).run();return{sessionId};});
+    const input=await step.do('load validated transcript',async()=>{const session=await this.env.DB.prepare('SELECT * FROM practice_sessions WHERE id=?').bind(sessionId).first<{scenario_id:string|null}>();if(!session)throw new Error('Session not found');const turns=await this.env.DB.prepare('SELECT speaker,text,duration_ms FROM practice_turns WHERE session_id=? ORDER BY turn_index').bind(sessionId).all<{speaker:string;text:string;duration_ms:number|null}>();const scenario=session.scenario_id?await this.env.DB.prepare('SELECT target_units_json FROM scenarios WHERE id=?').bind(session.scenario_id).first<{target_units_json:string}>():null;return{transcript:turns.results.map((t)=>`${t.speaker}: ${t.text}`).join('\n'),targets:json<string[]>(scenario?.target_units_json,[]),turns:turns.results};});
+    const evaluation=await step.do('evaluate speaking output',{retries:{limit:2,delay:'10 seconds',backoff:'exponential'},timeout:'2 minutes'},async()=>evaluateSpeaking(this.env,input.transcript,input.targets));
+    await step.do('persist evaluation and retry ledger',async()=>{const userTurns=input.turns.filter((t)=>t.speaker==='user');const totalWords=userTurns.reduce((n,t)=>n+t.text.trim().split(/\s+/).length,0);const totalMs=userTurns.reduce((n,t)=>n+(t.duration_ms??0),0);const fillers=(input.transcript.match(/\b(um|uh|like|you know)\b/gi)??[]).length;const metrics={totalSpeakingSeconds:Math.round(totalMs/1000),wordsPerMinute:totalMs?Math.round(totalWords/(totalMs/60000)):0,averageTurnLength:userTurns.length?Math.round(totalWords/userTurns.length):0,fillerCount:fillers,targetPhrasesAttempted:evaluation.successfulTargetUnits.length+evaluation.missedTargetUnits.length,targetPhrasesSuccessful:evaluation.successfulTargetUnits.length};await this.env.DB.batch([this.env.DB.prepare(`UPDATE practice_sessions SET status='complete',completed_at=CURRENT_TIMESTAMP,duration_seconds=?,objective_metrics_json=?,evaluation_json=? WHERE id=?`).bind(metrics.totalSpeakingSeconds,JSON.stringify(metrics),JSON.stringify(evaluation),sessionId),this.env.DB.prepare(`UPDATE job_runs SET status='complete',completed_at=CURRENT_TIMESTAMP,result_json=? WHERE idempotency_key=?`).bind(JSON.stringify({corrections:evaluation.priorityCorrections.length}),`session:${sessionId}`)]);await persistCorrections(this.env.DB,'speaking',sessionId,evaluation.priorityCorrections);return{metrics};});
+    return{sessionId,status:'complete'};
+  }
+}

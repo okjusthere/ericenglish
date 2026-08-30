@@ -1,0 +1,2 @@
+import { useCallback, useEffect, useState } from 'react';
+export function useAsync<T>(load:()=>Promise<T>,deps:unknown[]=[]){const [data,setData]=useState<T>();const [error,setError]=useState('');const [loading,setLoading]=useState(true);const reload=useCallback(()=>{setLoading(true);setError('');return load().then(setData).catch((e:unknown)=>setError(e instanceof Error?e.message:'Something went wrong')).finally(()=>setLoading(false));},deps);useEffect(()=>{void reload();},[reload]);return{data,error,loading,reload,setData};}

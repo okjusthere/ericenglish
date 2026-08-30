@@ -1,0 +1,11 @@
+import { useParams } from 'react-router-dom';
+import { api } from '../lib/api';
+import { useAsync } from '../hooks';
+import { Eyebrow, Metric, Panel } from '../components/ui';
+
+type Narrative={learned:string;recognitionOnly:string;recurringErrors:string;speakingChange:string;nextWeek:string};
+type Metrics={review?:{reviews?:number;accuracy?:number|null;avgResponseMs?:number|null};sessions?:{sessions?:number;speakingMinutes?:number|null};transfer?:{count?:number};errors?:Array<{category:string;count_30d:number}>};
+type ReportData={week_start:string;week_end:string;metrics_json:string;narrative_json:string};
+const parse=<T,>(value:string,fallback:T):T=>{try{return JSON.parse(value) as T}catch{return fallback}};
+export function Report(){const {id}=useParams();const state=useAsync(()=>api<ReportData>(`/api/reports/weekly/${id}`),[id]);if(!state.data)return <div className="page"/>;const metrics=parse<Metrics>(state.data.metrics_json,{});const narrative=parse<Narrative>(state.data.narrative_json,{learned:'No narrative available.',recognitionOnly:'—',recurringErrors:'—',speakingChange:'—',nextWeek:'—'});return <div className="page narrow"><div className="page-heading"><Eyebrow>WEEKLY REPORT · {state.data.week_start} → {state.data.week_end}</Eyebrow><h1>What changed<br/><em>in actual output?</em></h1></div><div className="metric-strip"><Metric label="Reviews" value={metrics.review?.reviews??0}/><Metric label="Recall" value={`${Math.round((metrics.review?.accuracy??0)*100)}%`}/><Metric label="Speaking" value={`${Math.round(metrics.sessions?.speakingMinutes??0)}m`}/><Metric label="Transfer" value={metrics.transfer?.count??0}/></div><div className="report-sections"><Panel><Eyebrow>BECAME MORE AVAILABLE</Eyebrow><h2>{narrative.learned}</h2></Panel><Panel><Eyebrow>STILL RECOGNITION-HEAVY</Eyebrow><p>{narrative.recognitionOnly}</p></Panel><Panel><Eyebrow>RECURRING ERRORS</Eyebrow><p>{narrative.recurringErrors}</p>{metrics.errors?.map((error)=><div className="check-line" key={error.category}><strong>{error.category}</strong><span>{error.count_30d} recent</span></div>)}</Panel><Panel><Eyebrow>SPEAKING CHANGE</Eyebrow><p>{narrative.speakingChange}</p></Panel><Panel className="wide"><Eyebrow>NEXT WEEK’S OPERATING DECISION</Eyebrow><h2>{narrative.nextWeek}</h2></Panel></div></div>;
+}

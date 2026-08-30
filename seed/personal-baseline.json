@@ -1,0 +1,15 @@
+{
+  "userId": "primary",
+  "displayName": "Eric",
+  "timezone": "America/New_York",
+  "workingLevel": "B1+ / early B2",
+  "target": "stable B2, then B2+",
+  "englishVariant": "American English",
+  "supportLanguage": "Simplified Chinese",
+  "dailyMinutes": 60,
+  "weeklyDays": 5,
+  "strengths": ["commercial real estate", "practical business English", "context-based comprehension"],
+  "weaknesses": ["abstract B2 vocabulary", "active recall", "precise word choice", "natural phrasing", "spontaneous speaking"],
+  "priorityContexts": ["real-estate calls", "showing coordination", "property requirements", "rent and NNN/CAM/tax questions", "negotiation", "client recommendations", "investment analysis", "team leadership", "school", "insurance", "DMV", "repair", "medical communication", "small talk"],
+  "privacy": "Contains no client or third-party personal data"
+}
