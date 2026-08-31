@@ -137,8 +137,18 @@ export class RealtimeTransport {
   private emit(event: RealtimeEvent): void {
     if (this.seenEvents.has(event.eventId)) return;
     this.seenEvents.add(event.eventId);
-    this.options.onEvent?.(event);
-    void fetch(`/api/realtime/sessions/${encodeURIComponent(this.options.sessionId)}/events`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-eric-csrf': '1' }, body: JSON.stringify(event) }).catch(() => undefined);
+    void this.persistEvent(event);
+  }
+
+  private async persistEvent(event: RealtimeEvent): Promise<void> {
+    try {
+      await fetch(`/api/realtime/sessions/${encodeURIComponent(this.options.sessionId)}/events`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-eric-csrf': '1' }, body: JSON.stringify(event) });
+    } catch {
+      // The live session remains usable if metadata persistence is temporarily
+      // unavailable. A subsequent transcript event will trigger another reload.
+    } finally {
+      this.options.onEvent?.(event);
+    }
   }
 
   private async recover(reason: Error): Promise<void> {

@@ -34,8 +34,10 @@ describe('Azure realtime contract', () => {
     await transport.start();
     const event = JSON.stringify({ event_id: 'same-event', type: 'response.audio_transcript.done', transcript: 'Hello' });
     channel!.onmessage?.({ data: event }); channel!.onmessage?.({ data: event });
-    expect(events.filter((id) => id === 'same-event')).toHaveLength(1);
+    await vi.waitFor(() => expect(events.filter((id) => id === 'same-event')).toHaveLength(1));
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/events'))).toBe(true);
+    transport.interrupt(); expect(channel!.send).toHaveBeenCalledWith(JSON.stringify({ type: 'response.cancel' }));
+    await transport.refreshToken(); expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('client-secret'))).toHaveLength(2);
     transport.close(); expect(stopTrack).toHaveBeenCalled();
   });
 });
