@@ -1,6 +1,6 @@
 # Eric English OS
 
-Private, single-user English training software for moving from receptive B1+/B2 knowledge to reliable spoken and written output. It combines a deterministic daily planner, FSRS scheduling, speaking and writing practice, real-world capture, an error ledger, weekly reports, and export/delete controls.
+Private, single-user English training software for moving from receptive B1+/B2 knowledge to reliable spoken and written output. It combines a resumable evidence-driven daily runner, staged FSRS scheduling, scenario-backed speaking, verified writing and production practice, real-world transfer, an error ledger, weekly reports, and export/delete controls.
 
 ## Stack
 
@@ -34,7 +34,13 @@ pnpm build
 pnpm smoke:local
 ```
 
-`pnpm test:e2e` expects Playwright Chromium (`pnpm exec playwright install chromium`). The web server migrates the local database; first-run bootstrap loads the committed 240 units, 50 scenarios, and 960 cards.
+`pnpm test:e2e` expects Playwright Chromium (`pnpm exec playwright install chromium`). The web server migrates the local database; first-run bootstrap loads the committed 240 units and 50 scenarios. Review cards are activated in stages only after a unit is learned or supported by assessment evidence, so unseen vocabulary never appears as a false review backlog.
+
+## Learning loop
+
+Start on **Today → Start today’s session**. The runner resumes the first unfinished block and connects Review → Learn → Drill → Speak → Write/Real World → Reflection. Every completed action writes evidence against recognition, recall, production, or transfer; mastery and the next FSRS due date are derived from that evidence. Drill answers and the baseline assessment are scored on the server rather than trusted from client self-ratings. The real-world mission requires the sentence actually used before it can count as transfer.
+
+Pronunciation controls appear on every unit, contextual example, revealed review answer, drill model answer, preparation opening, coach reply, and correction. Production prefers Azure server TTS when configured and falls back to browser speech synthesis. Speaking practice supports scenario-aware text turns and optional realtime voice; recorded Drill and re-say attempts are transcribed and verified.
 
 ## Seed and migrations
 

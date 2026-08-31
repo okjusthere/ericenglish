@@ -33,11 +33,12 @@ export const assessmentEvaluationSchema = z.object({
   topRecurringErrors: z.array(z.string()).max(3), focus: z.array(z.string()).min(3).max(5),
   confidence: z.enum(['low','moderate','high']),
 });
-export const drillAnswerSchema = z.object({unitId:z.string().min(1).max(100),prompt:z.string().min(1).max(1000),response:z.string().max(3000),correct:z.boolean(),responseMs:z.number().int().min(0).max(300_000),variant:z.number().int().min(1).max(3)});
+export const drillAnswerSchema = z.object({unitId:z.string().min(1).max(100),prompt:z.string().min(1).max(1000),response:z.string().min(1).max(3000),responseMs:z.number().int().min(0).max(300_000),variant:z.number().int().min(1).max(3),planItemId:z.string().max(160).optional()});
 export const speakingSessionSchema = z.object({
   scenarioId: z.string().max(100).optional(),
   mode: z.enum(['fluency', 'drill', 'monologue', 'objection', 'phone', 'small_talk']).default('fluency'),
   title: z.string().min(1).max(160).default('Practice session'),
+  planItemId: z.string().max(160).optional(),
 });
 export const speakingTurnSchema = z.object({
   text: z.string().min(1).max(6000),
@@ -67,6 +68,14 @@ export const captureSchema = z.object({
   redactAddresses: z.boolean().default(false),
 });
 export const eventPrepSchema = z.object({ event: z.string().min(3).max(5000) });
+export const eventPrepResultSchema = z.object({
+  mustUseTerms:z.array(z.string().min(1).max(120)).min(3).max(5),
+  recommendedOpening:z.string().min(10).max(600),
+  likelyFollowUps:z.array(z.string().min(5).max(500)).min(3).max(5),
+  possibleResponses:z.array(z.string().min(5).max(500)).min(2).max(4),
+  cheatSheet:z.array(z.string().min(3).max(300)).min(4).max(8),
+  followUpMessage:z.string().min(10).max(1200),
+});
 export const afterActionSchema = z.object({
   happened: z.string().min(1).max(5000),
   missedPhrase: z.string().max(2000).default(''),
@@ -75,6 +84,7 @@ export const afterActionSchema = z.object({
 });
 export const confirmationSchema = z.object({ confirmation: z.literal('DELETE') });
 export const personalExampleSchema = z.object({ text: z.string().min(3).max(2000) });
+export const unitCompleteSchema = z.object({ planItemId:z.string().max(160).optional(), targetIndex:z.number().int().min(0).max(20).optional() });
 
 export const correctionSchema = z.object({
   original: z.string(), improved: z.string(), reason: z.string(),

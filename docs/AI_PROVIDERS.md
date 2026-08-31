@@ -8,7 +8,7 @@
 - `direct`: optional direct OpenAI-compatible fallback using Worker secrets.
 - `workers_ai_stt`: optional hybrid mode with OpenAI-compatible text and Workers AI transcription.
 
-Production model roles are separate: `AI_MODEL_FAST` and `AI_MODEL_CONTENT` use `@cf/qwen/qwen3-30b-a3b-fp8`, `AI_MODEL_STRONG` uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, and `AI_MODEL_STT` uses `@cf/openai/whisper-large-v3-turbo`. `AI_MODEL_TTS` is empty because the application uses browser speech synthesis.
+Production model roles are separate: `AI_MODEL_FAST` and `AI_MODEL_CONTENT` use `@cf/qwen/qwen3-30b-a3b-fp8`, `AI_MODEL_STRONG` uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, and `AI_MODEL_STT` uses `@cf/openai/whisper-large-v3-turbo`. Azure deployments provide realtime voice (`gpt-realtime-2.1`), server TTS (`gpt-4o-mini-tts`), and server transcription (`gpt-4o-mini-transcribe`) when their independently gated features are enabled. Browser speech synthesis remains the no-key TTS fallback.
 
 ## Privacy controls
 
@@ -27,7 +27,7 @@ AI_MODEL_FAST
 AI_MODEL_STRONG
 AI_MODEL_CONTENT
 AI_MODEL_STT
-AI_MODEL_TTS            # empty in production; browser speech synthesis is used
+AI_MODEL_TTS            # empty for Workers AI; Azure TTS or browser fallback is used
 ```
 
 `AI_GATEWAY_API_BASE` and `AI_GATEWAY_BYOK_ALIAS` are used only by the optional OpenAI-compatible Gateway modes.

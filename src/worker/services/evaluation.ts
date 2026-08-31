@@ -3,7 +3,7 @@ import writingPrompt from '../../ai/prompts/writing-coach.md?raw';
 import capturePrompt from '../../ai/prompts/unit-extractor.md?raw';
 import { createProviders } from '../../ai/providers';
 import { captureExtractionSchema, speakingEvaluationSchema, writingEvaluationSchema } from '../../shared/schemas';
-import { emptyFsrsCard } from '../../learning/fsrs';
+import { activateCardsForState } from './learning-evidence';
 
 export async function evaluateSpeaking(env:Env,transcript:string,targetUnits:string[]){return createProviders(env).text.generateStructured({taskType:'speaking',system:speakingPrompt,prompt:`Transcript:\n${transcript}\nTarget units: ${targetUnits.join(', ')}`,modelRole:'evaluator_strong',sensitive:true},speakingEvaluationSchema);}
 export async function evaluateWriting(env:Env,prompt:string,text:string){return createProviders(env).text.generateStructured({taskType:'writing',system:writingPrompt,prompt:`Task: ${prompt}\nLearner draft:\n${text}`,modelRole:'daily_fast',sensitive:true},writingEvaluationSchema);}
@@ -23,7 +23,7 @@ export async function persistCandidateUnits(db:D1Database,candidates:Array<{term
     const existing=await db.prepare('SELECT id FROM learning_units WHERE normalized_term=?').bind(normalized).first<{id:string}>();const unitId=existing?.id??crypto.randomUUID();
     await db.prepare(`INSERT OR IGNORE INTO learning_units(id,unit_type,term,normalized_term,cefr,priority,register,domains_json,definition_en,collocations_json,examples_json,confusions_json,source) VALUES(?,'phrase',?,?,'B2',0.9,'business','["personal"]',?,'[]','[]','[]',?)`).bind(unitId,candidate.term,normalized,candidate.definition,source).run();
     await db.prepare(`INSERT OR IGNORE INTO user_unit_states(user_id,unit_id,status,priority_override) VALUES('primary',?,'introduced',0.95)`).bind(unitId).run();
-    for(const cardType of ['recognition','active_recall','cloze','listening_recall']){const card=emptyFsrsCard(new Date());await db.prepare(`INSERT OR IGNORE INTO review_cards(id,user_id,unit_id,card_type,state,due_at,stability,difficulty,elapsed_days,scheduled_days,learning_steps,reps,lapses,last_review_at,fsrs_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(`card-${unitId}-${cardType}`,'primary',unitId,cardType,card.state,card.due.toISOString(),card.stability,card.difficulty,card.elapsed_days,card.scheduled_days,card.learning_steps,card.reps,card.lapses,null,JSON.stringify(card)).run();}
+    await activateCardsForState(db,unitId,{recognition:0,recall:0,production:0,transfer:0});
     ids.push(unitId);
   }
   return ids;

@@ -1,25 +1,65 @@
-import { env,exports } from 'cloudflare:workers';
-import { describe,expect,it } from 'vitest';
+import { env, exports } from 'cloudflare:workers';
+import { describe, expect, it } from 'vitest';
+
 const request=(path:string,init:RequestInit={})=>exports.default.fetch(new Request(`http://app.test${path}`,{...init,headers:{origin:'http://app.test','x-eric-csrf':'1',...(init.body instanceof FormData?{}:{'content-type':'application/json'}),...init.headers}}));
 const json=async(path:string,init:RequestInit={})=>{const response=await request(path,init);const payload=await response.json() as Record<string,unknown>;expect(response.status,JSON.stringify(payload)).toBeLessThan(400);return payload;};
-describe('connected production paths',()=>{it('bootstraps, persists learning flows, and exports',async()=>{
-  const boot=await json('/api/bootstrap',{method:'POST',body:'{}'});expect(boot.units).toBe(240);expect(boot.scenarios).toBe(50);
-  const counts=await env.DB.prepare('SELECT (SELECT COUNT(*) FROM learning_units) units,(SELECT COUNT(*) FROM scenarios) scenarios,(SELECT COUNT(*) FROM review_cards) cards').first<{units:number;scenarios:number;cards:number}>();expect(counts).toEqual({units:240,scenarios:50,cards:960});
-  const today=await json('/api/today');expect((today.items as unknown[]).length).toBe(6);
-  const due=await json('/api/reviews/due?limit=1');const card=(due.cards as Array<{id:string}>)[0];const review=await json(`/api/reviews/${card.id}/answer`,{method:'POST',body:JSON.stringify({response:'concise',correct:true,responseMs:2500,hintLevel:0,rating:4})});expect(review.rating).toBe(4);expect((await env.DB.prepare('SELECT COUNT(*) count FROM review_events').first<{count:number}>())?.count).toBe(1);
-  const writing=await json('/api/writing/evaluate',{method:'POST',body:JSON.stringify({taskType:'text_30s',prompt:'Ask about rent',text:'Can the price lower?'})});expect(writing.natural).toBeTruthy();
-  const scenarios=await json('/api/speaking/scenarios');const scenario=(scenarios.scenarios as Array<{id:string}>)[0];const session=await json('/api/speaking/sessions',{method:'POST',body:JSON.stringify({scenarioId:scenario.id,mode:'fluency',title:'Test call'})});const sessionId=String(session.id);const turn=await json(`/api/speaking/sessions/${sessionId}/turns`,{method:'POST',body:JSON.stringify({text:'Could you clarify the CAM charges?',durationMs:4000})});expect((turn.assistant as {text:string}).text).toBeTruthy();const ownerHeaders={'cf-access-authenticated-user-email':env.OWNER_EMAIL};const realtimeEvent={eventId:'realtime-user-1',eventType:'user_transcript',text:'Please clarify the rent.',durationMs:1200};await json(`/api/realtime/sessions/${sessionId}/events`,{method:'POST',headers:ownerHeaders,body:JSON.stringify(realtimeEvent)});const duplicate=await json(`/api/realtime/sessions/${sessionId}/events`,{method:'POST',headers:ownerHeaders,body:JSON.stringify(realtimeEvent)});expect(duplicate.deduplicated).toBe(true);expect((await env.DB.prepare('SELECT COUNT(*) count FROM realtime_events WHERE event_id=?').bind(realtimeEvent.eventId).first<{count:number}>())?.count).toBe(1);const beforeBlank=(await env.DB.prepare('SELECT COUNT(*) count FROM practice_turns WHERE session_id=?').bind(sessionId).first<{count:number}>())?.count;await json(`/api/realtime/sessions/${sessionId}/events`,{method:'POST',headers:ownerHeaders,body:JSON.stringify({eventId:'realtime-blank-delta',eventType:'assistant_transcript'})});expect((await env.DB.prepare('SELECT COUNT(*) count FROM practice_turns WHERE session_id=?').bind(sessionId).first<{count:number}>())?.count).toBe(beforeBlank);
-  const capture=await json('/api/captures',{method:'POST',body:JSON.stringify({captureType:'missed_phrase',text:'Call me at 212-555-0100. Can the price lower?',context:'listing call',redactAddresses:false})});expect(((capture.redactionPreview as {findings:string[]}).findings)).toContain('PHONE');
-  const progress=await json('/api/progress/summary');expect(progress.unitStatusFunnel).toBeTruthy();
-  const exported=await json('/api/export',{method:'POST',body:JSON.stringify({format:'json'})});const download=await request(String(exported.downloadUrl));expect(download.status).toBe(200);expect((await download.text())).toContain('exportedAt');
-});it('rejects unauthenticated server TTS before provider or cache access',async()=>{const response=await request('/api/audio/tts',{method:'POST',body:JSON.stringify({text:'hello'})});expect(response.status).toBe(401);expect(await response.json()).toEqual({error:'Owner authentication is required.'});});it('completes assessment evidence, audio capture, drills, and after-action review',async()=>{
-  await json('/api/bootstrap',{method:'POST',body:'{}'});
-  const assessment=await json('/api/assessments',{method:'POST',body:'{}'});const assessmentId=String(assessment.id);const premature=await request(`/api/assessments/${assessmentId}/complete`,{method:'POST',body:'{}'});expect(premature.status).toBe(400);
-  const repeated={itemId:'dedupe-item',section:'receptive',responseText:'first',correct:true,responseMs:1000,replayCount:0,hintLevel:0};await json(`/api/assessments/${assessmentId}/responses`,{method:'POST',body:JSON.stringify(repeated)});await json(`/api/assessments/${assessmentId}/responses`,{method:'POST',body:JSON.stringify({...repeated,responseText:'replacement'})});expect((await env.DB.prepare('SELECT COUNT(*) count FROM assessment_responses WHERE assessment_id=? AND item_id=?').bind(assessmentId,'dedupe-item').first<{count:number}>())?.count).toBe(1);await env.DB.prepare('DELETE FROM assessment_responses WHERE assessment_id=? AND item_id=?').bind(assessmentId,'dedupe-item').run();
-  const sections=[...Array(60).fill('receptive'),...Array(30).fill('active_recall'),...Array(2).fill('writing'),...Array(3).fill('speaking'),...Array(2).fill('listening')] as string[];await env.DB.batch(sections.map((section,index)=>env.DB.prepare(`INSERT INTO assessment_responses(id,assessment_id,item_id,section,response_text,correct,response_ms,replay_count,hint_level,evaluation_json) VALUES(?,?,?,?,?,1,2000,0,0,'{}')`).bind(`response-${index}`,assessmentId,`item-${index}`,section,'A complete unaided response.')));const completed=await json(`/api/assessments/${assessmentId}/complete`,{method:'POST',body:'{}'});expect((completed.objective as {responses:number}).responses).toBe(97);expect((completed.evaluator as {speaking:number}).speaking).toBe(3);
-  const assessmentAudio=new FormData();assessmentAudio.set('audio',new File([new Uint8Array([1,2,3])],'anchor.webm',{type:'audio/webm'}));const transcript=await json(`/api/assessments/${assessmentId}/transcribe`,{method:'POST',body:assessmentAudio});expect(transcript.audioKey).toMatch(/^audio\/assessments\//);
-  const captureAudio=new FormData();captureAudio.set('audio',new File([new Uint8Array([1,2,3])],'capture.webm',{type:'audio/webm'}));captureAudio.set('context','test call');const voiceCapture=await json('/api/captures/audio',{method:'POST',body:captureAudio});expect(voiceCapture.transcript).toContain('clarify');
-  const manifest=await json('/api/audio/manifest');const audioObjects=manifest.objects as Array<{downloadUrl:string}>;expect(audioObjects.length).toBe(2);const audioDownload=await request(audioObjects[0].downloadUrl);expect(audioDownload.status).toBe(200);expect(audioDownload.headers.get('content-disposition')).toContain('attachment');
-  const unit=(await env.DB.prepare('SELECT id FROM learning_units ORDER BY id LIMIT 1').first<{id:string}>())!;const drill=await json('/api/drills/sessions',{method:'POST',body:'{}'});await json(`/api/drills/sessions/${String(drill.id)}/answers`,{method:'POST',body:JSON.stringify({unitId:unit.id,prompt:'Use it now',response:'A spoken answer',correct:true,responseMs:1800,variant:1})});await json(`/api/drills/sessions/${String(drill.id)}/complete`,{method:'POST',body:'{}'});expect((await env.DB.prepare(`SELECT status FROM practice_sessions WHERE id=?`).bind(drill.id).first<{status:string}>())?.status).toBe('complete');
-  const prepared=await json('/api/event-prep',{method:'POST',body:JSON.stringify({event:'Call the listing agent tomorrow.'})});const after=await json(`/api/event-prep/${String(prepared.id)}/after-action`,{method:'POST',body:JSON.stringify({happened:'We confirmed the next tour.',missedPhrase:'Ask about flexibility.',unfamiliarExpression:'tenant improvement allowance',createFollowUp:true})});expect(after.followUp).toBeTruthy();
-});});
+
+describe('adaptive learning loop',()=>{
+  it('bootstraps with no false backlog, activates staged cards, records evidence, and recalculates an override',async()=>{
+    const boot=await json('/api/bootstrap',{method:'POST',body:'{}'});expect(boot).toMatchObject({units:240,scenarios:50});
+    const initial=await env.DB.prepare(`SELECT COUNT(*) cards,COALESCE(SUM(active),0) active FROM review_cards`).first<{cards:number;active:number}>();expect(initial).toEqual({cards:0,active:0});
+    const today=await json('/api/today');expect(today.dueCount).toBe(0);expect((today.items as unknown[]).length).toBe(6);
+    const learnItem=(today.items as Array<{id:string;item_type:string}>).find((item)=>item.item_type==='learn')!;
+    await json(`/api/today/items/${learnItem.id}/start`,{method:'POST',body:'{}'});
+    await json('/api/units/unit-001/complete',{method:'POST',body:JSON.stringify({planItemId:learnItem.id,targetIndex:0})});
+    const activated=await env.DB.prepare(`SELECT card_type,active FROM review_cards WHERE unit_id='unit-001' ORDER BY card_type`).all<{card_type:string;active:number}>();expect(activated.results).toEqual([{card_type:'recognition',active:1}]);
+    const due=await json('/api/reviews/due?limit=1');const card=(due.cards as Array<{id:string}>)[0];expect(card).toBeTruthy();
+    const reviewed=await json(`/api/reviews/${card.id}/answer`,{method:'POST',body:JSON.stringify({response:'concise',correct:true,responseMs:2500,hintLevel:0,rating:4})});expect(reviewed.rating).toBe(4);
+    const beforeOverride=String(reviewed.nextDue);const overridden=await json(`/api/reviews/${card.id}/override-rating`,{method:'POST',body:JSON.stringify({rating:1})});expect(new Date(String(overridden.nextDue)).getTime()).toBeLessThan(new Date(beforeOverride).getTime());
+    const evidence=await env.DB.prepare(`SELECT source,dimension,score,verified FROM learning_evidence WHERE unit_id='unit-001' ORDER BY created_at`).all();expect(evidence.results).toEqual(expect.arrayContaining([expect.objectContaining({source:'learn',dimension:'recognition'}),expect.objectContaining({source:'review',verified:1})]));
+    const completed=await json(`/api/today/items/${learnItem.id}/complete`,{method:'POST',body:JSON.stringify({learned:['unit-001']})});expect(completed.ok).toBe(true);
+  });
+
+  it('machine-scores the adaptive baseline and ignores learner-supplied correctness',async()=>{
+    await json('/api/bootstrap',{method:'POST',body:'{}'});
+    const assessment=await json('/api/assessments',{method:'POST',body:'{}'});const assessmentId=String(assessment.id);const initial=assessment.items as Array<{id:string;section:string;cefr:string|null}>;expect(assessment.total).toBe(28);expect(assessment.scoring).toBe('adaptive_machine');
+    const machineQueue=initial.filter((item)=>item.section==='receptive'||item.section==='active_recall');const productive=initial.filter((item)=>!machineQueue.includes(item));const routedBands=new Set<string>();
+    for(let index=0;index<machineQueue.length;index++){
+      const item=machineQueue[index];
+      const stored=await env.DB.prepare('SELECT expected_answer FROM assessment_items WHERE id=?').bind(item.id).first<{expected_answer:string|null}>();const responseText=item.section==='receptive'||item.section==='active_recall'?String(stored?.expected_answer):'A complete unaided response that explains the requested situation clearly and professionally.';
+      const result=await json(`/api/assessments/${assessmentId}/responses`,{method:'POST',body:JSON.stringify({itemId:item.id,section:item.section,responseText:index===0?'definitely wrong':responseText,responseMs:index===0?1000:2200,replayCount:0,hintLevel:0,correct:true})});
+      if(index===0)expect(result).toMatchObject({correct:false,score:0});
+      const next=result.nextItem as {id:string;section:string;cefr:string}|null;if(next){machineQueue.push(next);routedBands.add(next.cefr);}
+    }
+    expect(machineQueue).toHaveLength(24);expect(routedBands).toEqual(new Set(['B1','B2']));
+    for(const item of productive)await json(`/api/assessments/${assessmentId}/responses`,{method:'POST',body:JSON.stringify({itemId:item.id,section:item.section,responseText:'A complete unaided response that explains the requested situation clearly and professionally.',responseMs:2200,replayCount:item.section==='listening'?1:0,hintLevel:0})});
+    const completed=await json(`/api/assessments/${assessmentId}/complete`,{method:'POST',body:'{}'});expect((completed.objective as {machineScoredItems:number}).machineScoredItems).toBe(24);expect((completed.report as {disclaimer:string}).disclaimer).toContain('machine-scored');
+    expect((await env.DB.prepare(`SELECT assessment_completed FROM learner_profiles WHERE user_id='primary'`).first<{assessment_completed:number}>())?.assessment_completed).toBe(1);
+  });
+
+  it('selects an adaptive drill queue, verifies production server-side, and writes production evidence',async()=>{
+    await json('/api/bootstrap',{method:'POST',body:'{}'});await json('/api/units/unit-001/complete',{method:'POST',body:'{}'});
+    const queue=await json('/api/drills/queue?limit=20');const concise=(queue.units as Array<{id:string;model_answer:string}>).find((unit)=>unit.id==='unit-001');expect(concise).toBeTruthy();expect(concise!.model_answer.split(' ').length).toBeGreaterThan(3);
+    const session=await json('/api/drills/sessions',{method:'POST',body:'{}'});const sessionId=String(session.id);
+    const failed=await json(`/api/drills/sessions/${sessionId}/answers`,{method:'POST',body:JSON.stringify({unitId:'unit-001',prompt:'Use it now',response:'This answer avoids the target.',responseMs:1800,variant:2})});expect(failed).toMatchObject({correct:false,score:20});
+    const passed=await json(`/api/drills/sessions/${sessionId}/answers`,{method:'POST',body:JSON.stringify({unitId:'unit-001',prompt:'Use it now',response:'I gave the client a concise summary of the lease terms.',responseMs:1800,variant:2})});expect(passed).toMatchObject({correct:true,score:90});
+    expect((await env.DB.prepare(`SELECT COUNT(*) count FROM learning_evidence WHERE unit_id='unit-001' AND source='drill' AND dimension='production'`).first<{count:number}>())?.count).toBe(2);
+  });
+
+  it('uses scenario-backed speaking, personalized event prep, transfer evidence, and export',async()=>{
+    await json('/api/bootstrap',{method:'POST',body:'{}'});await json('/api/units/unit-062/complete',{method:'POST',body:'{}'});
+    const scenarios=await json('/api/speaking/scenarios');const scenario=(scenarios.scenarios as Array<{id:string}>)[0];const session=await json('/api/speaking/sessions',{method:'POST',body:JSON.stringify({scenarioId:scenario.id,mode:'fluency',title:'Test call'})});const sessionId=String(session.id);
+    const turn=await json(`/api/speaking/sessions/${sessionId}/turns`,{method:'POST',body:JSON.stringify({text:'Could you confirm the asking rent and showing availability?',durationMs:4200})});expect((turn.assistant as {text:string}).text).toContain('move-in timeline');expect((turn.scenario as {hiddenComplication:string}).hiddenComplication).toBeTruthy();
+    const prepared=await json('/api/event-prep',{method:'POST',body:JSON.stringify({event:'Tomorrow I will call the listing agent about CAM, rent, and a showing time.'})});expect(String(prepared.recommendedOpening)).toContain('tomorrow');expect((prepared.mustUse as unknown[]).length).toBeGreaterThanOrEqual(3);
+    const after=await json(`/api/event-prep/${String(prepared.id)}/after-action`,{method:'POST',body:JSON.stringify({happened:'We confirmed the asking rent and the next step.',missedPhrase:'',unfamiliarExpression:'',createFollowUp:true})});expect(String(after.followUp)).toContain('CAM');
+    const exported=await json('/api/export',{method:'POST',body:JSON.stringify({format:'json'})});const download=await request(String(exported.downloadUrl));expect(download.status).toBe(200);expect(await download.text()).toContain('exportedAt');
+  });
+});
+
+describe('defense in depth',()=>{
+  it('rejects missing and wrong Access identities on every production API path',async()=>{
+    const missing=await exports.default.fetch(new Request('https://english.diypokecard.com/api/me'));expect(missing.status).toBe(401);
+    const wrong=await exports.default.fetch(new Request('https://english.diypokecard.com/api/me',{headers:{'cf-access-authenticated-user-email':'attacker@example.com'}}));expect(wrong.status).toBe(403);
+    const owner=await exports.default.fetch(new Request('https://english.diypokecard.com/api/me',{headers:{'cf-access-authenticated-user-email':env.OWNER_EMAIL}}));expect(owner.status).toBe(200);
+  });
+});

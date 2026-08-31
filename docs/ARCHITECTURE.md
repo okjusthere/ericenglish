@@ -6,7 +6,7 @@ The official Cloudflare Vite plugin builds one React SPA and one Hono Worker. St
 
 ## State and services
 
-- D1 is authoritative for profiles, learning units, four-dimensional mastery, FSRS cards/events, plans, sessions, writing, corrections, assessment data, reports, jobs, and export metadata.
+- D1 is authoritative for profiles, learning units, immutable learning evidence, four-dimensional derived mastery, staged FSRS cards/events, resumable plan items, scenario sessions, retry attempts, writing, corrections, machine-scored assessment items/responses, reports, jobs, and export metadata.
 - R2 stores temporary raw audio and generated exports. Object keys are random IDs, never personal names.
 - Workflows run speaking analysis, weekly reporting, and curriculum bootstrap with named, retryable steps.
 - The hourly Cron dispatches timezone-aware daily planning, Sunday reporting, retention cleanup, and rate-event cleanup.
@@ -14,9 +14,9 @@ The official Cloudflare Vite plugin builds one React SPA and one Hono Worker. St
 
 ## Learning loop
 
-Capture or seed unit → four FSRS cards → deterministic daily allocation → active recall/output → mastery update → error ledger → targeted retry → weekly analysis. Recognition, recall, production, and transfer are tracked independently; a recognized word is not treated as productive.
+Capture or seed unit → first verified learning evidence → staged FSRS activation → adaptive daily allocation → active recall/output → evidence aggregation and mastery transition → error ledger → verified retry → transfer → weekly analysis. Recognition, recall, production, and transfer are tracked independently; a recognized word is not treated as productive. Unseen seed units have no active cards, and later card types unlock only as the learner progresses.
 
-Daily allocation has exact 30/45/60/75/90-minute modes, caps new content when reviews accumulate, prioritizes real-world relevance and recurring errors, and always prefers due recall and active output over novelty.
+Daily allocation has exact 30/45/60/75/90-minute modes, caps new content when reviews accumulate, prioritizes recall-production gaps, real-world relevance and recurring errors, and always prefers due recall and active output over novelty. Daily plan items have pending/in-progress/complete states and result evidence, allowing the runner to resume safely across devices.
 
 ## Request lifecycle
 

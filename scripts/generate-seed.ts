@@ -36,6 +36,36 @@ const domainGlosses:Record<Exclude<Category,'general'>,string[]>={
 };
 for(const category of Object.keys(domainGlosses) as Exclude<Category,'general'>[])if(domainGlosses[category].length!==catalog[category].length)throw new Error(`English definition count mismatch for ${category}`);
 const priority = new Set(['concise','arbitrary','alleviate','detrimental','receptive','subtle','inevitable','allocate','skeptical','counterproductive','compelling','negligible','streamline','flawed','adamant','intertwined','bleak','mitigate','exponential','onerous','spacious','deter','marginal','scrutinize','jeopardize','unprecedented','contradict']);
+const generalVerbs = new Set(['alleviate','allocate','streamline','mitigate','deter','scrutinize','jeopardize','contradict','assess','retain','justify','accommodate','verify','comply','waive']);
+const confusionNotes:Record<string,string>={
+  concise:'Concise means short and clear; brief emphasizes length and can still omit something important.',
+  arbitrary:'Arbitrary suggests that a decision lacks a fair or reasonable basis; it does not simply mean random.',
+  alleviate:'Alleviate reduces the severity of a problem; eliminate means remove it completely.',
+  detrimental:'Detrimental is normally followed by “to” and describes a harmful effect, not merely an inconvenience.',
+  receptive:'Receptive means willing to consider an idea; responsive means reacting or replying quickly.',
+  subtle:'Subtle means difficult to notice or express precisely; slight only describes a small amount.',
+  inevitable:'Inevitable means unavoidable, not simply likely.',
+  allocate:'Allocate means assign a limited resource for a purpose; distribute emphasizes giving portions to recipients.',
+  skeptical:'Skeptical takes “of” or “about” and means unconvinced, not automatically opposed.',
+  counterproductive:'Counterproductive means causing the opposite of the intended result, not merely inefficient.',
+  compelling:'Compelling can mean highly persuasive; convincing describes the effect on the listener more directly.',
+  negligible:'Negligible means too small to matter in the decision; insignificant can also mean unimportant for other reasons.',
+  streamline:'Streamline means remove unnecessary friction while preserving the outcome; it does not mean rush.',
+  flawed:'Flawed identifies a material weakness but does not necessarily mean completely false.',
+  adamant:'Adamant describes a person or position that will not change; use it only for a genuinely firm stance.',
+  intertwined:'Intertwined emphasizes that issues influence each other and are difficult to separate.',
+  bleak:'Bleak is strongly negative and often describes an outlook or prospect, not an ordinary minor problem.',
+  mitigate:'Mitigate reduces risk or harm; prevent means stop it from happening.',
+  exponential:'Exponential has a precise accelerating-growth meaning and should not be used for every large increase.',
+  onerous:'Onerous describes an unreasonably demanding obligation, not simply a difficult task.',
+  spacious:'Spacious describes abundant usable room, while large only describes size.',
+  deter:'Deter means discourage through expected consequences; prevent means make the action impossible.',
+  marginal:'Marginal often means too small to change the decision; it can also refer to an edge or incremental unit.',
+  scrutinize:'Scrutinize means examine very carefully, which is stronger than review.',
+  jeopardize:'Jeopardize means put something valuable at serious risk; it does not mean cause a minor delay.',
+  unprecedented:'Unprecedented means no prior comparable case exists; unusual is much weaker.',
+  contradict:'Contradict means assert or demonstrate the opposite; differ means only that two things are not the same.',
+};
 const glosses: Record<string,string> = {
   concise:'brief but complete and clear', arbitrary:'based on preference rather than a clear reason', alleviate:'make a problem or burden less severe', detrimental:'likely to cause harm', receptive:'willing to listen to or accept an idea', subtle:'not obvious and requiring careful attention', inevitable:'certain to happen', allocate:'assign time, money, or resources for a purpose', skeptical:'not easily convinced', counterproductive:'having the opposite of the intended effect', compelling:'strong enough to persuade or attract attention', negligible:'too small to matter', streamline:'make a process simpler and more efficient', flawed:'containing a weakness or mistake', adamant:'unwilling to change a firm decision', intertwined:'closely connected and difficult to separate', bleak:'unlikely to improve; without much hope', mitigate:'reduce the seriousness of a risk or problem', exponential:'increasing at an accelerating rate', onerous:'requiring too much effort, time, or expense', spacious:'having plenty of room', deter:'discourage an action', marginal:'small or limited in effect', scrutinize:'examine very carefully', jeopardize:'put something valuable at risk', unprecedented:'never having happened at this scale before', contradict:'state or show the opposite of something',
   assess:'judge the quality, importance, or likely effect of something',retain:'keep or continue to have something',justify:'give a sound reason for a decision or cost',viable:'capable of working successfully in practice',coherent:'logical, consistent, and easy to follow',reluctant:'unwilling or hesitant to do something',ambiguous:'open to more than one interpretation',substantial:'large or important enough to matter',preliminary:'done first to prepare for a fuller decision',plausible:'reasonable enough to be believed',persistent:'continuing despite time or attempts to stop it',transparent:'open, clear, and easy to examine',elaborate:'detailed and carefully developed',comprehensive:'covering all or nearly all relevant points',sustainable:'able to continue without causing unacceptable harm or cost',feasible:'possible and practical with available resources',robust:'strong and reliable under different conditions',stringent:'strict and demanding',unforeseen:'not expected or predicted in advance',inherent:'existing as a natural or essential part of something',redundant:'unnecessary because it repeats or adds no value',legitimate:'reasonable, lawful, or genuinely valid',misleading:'likely to create a false impression',accommodate:'make room for or meet a reasonable need',verify:'check that something is true or accurate',comply:'act according to a rule or requirement',waive:'formally choose not to require or enforce something',deteriorate:'become worse over time',discrepancy:'a difference between facts or records that should agree',favorable:'helpful or likely to produce a good result',reasonable:'fair, sensible, and supported by the circumstances',efficient:'working well without wasting time or resources',significant:'important or large enough to affect the result'
@@ -46,26 +76,26 @@ if(generalPartners.length!==catalog.general.length)throw new Error('General coll
 
 const unitType = (term:string,category:Category,index:number) => category==='general'?'word':category==='real_estate'?(index===0?'sentence_frame':'collocation'):category==='analysis'?(index>=10?'grammar_pattern':'phrase'):(/[?.!]$/.test(term)||/^(I |We |Would |What |Could |How |That |Let |Here |Please )/.test(term)?'sentence_frame':term.split(' ').length<=4?'collocation':'phrase');
 const definition = (term:string, category:Category,index:number) => glosses[term] ?? domainGlosses[category as Exclude<Category,'general'>]?.[index] ?? `a high-value B2 unit for more precise professional communication: ${term}`;
-const example = (term:string, category:Category, n:number) => {
-  const quoted = `“${term}”`;
-  const templates: Record<Category,string[]> = {
-    general:[`The team chose ${quoted} because it expressed the point more precisely.`,`Eric practiced ${quoted} in a short client update.`,`Use ${quoted} only when it matches the intended meaning.`],
-    real_estate:[`The broker used ${quoted} while clarifying the property details.`,`Before the showing, Eric confirmed ${quoted} with the listing agent.`,`The client asked for a clear explanation of ${quoted}.`],
-    negotiation:[`Eric used ${quoted} to keep the negotiation firm but cooperative.`,`The phrase ${quoted} helped move the discussion forward.`,`Try ${quoted} before proposing the next step.`],
-    everyday:[`On the phone, Eric said ${quoted} clearly and politely.`,`The phrase ${quoted} made the request easy to understand.`,`Practice saying ${quoted} without pausing.`],
-    analysis:[`Eric used ${quoted} to structure his recommendation.`,`The expression ${quoted} made the comparison easier to follow.`,`Start the next point with ${quoted}.`]
-  };
-  return templates[category][n];
+const example = (term:string, category:Category, n:number,collocations:string[]) => {
+  const quotedTerm=term.replace(/[,.!?]+$/,'');
+  if(category==='general'){
+    if(generalVerbs.has(term))return[`We need to ${collocations[0]} before the client approves the next step.`,`Eric used the follow-up call to ${collocations[1]}.`,`A short written record will help us ${collocations[2]}.`][n];
+    return[`The ${collocations[0]} helped the client understand the recommendation.`,`A ${collocations[1]} changed the way the team evaluated the proposal.`,`The final memo highlighted the ${collocations[2]}.`][n];
+  }
+  if(category==='real_estate')return[`Before scheduling the tour, Eric asked the listing agent to confirm ${term}.`,`The client compared both properties after reviewing ${term}.`,`Please put ${term} in the follow-up email so the parties can verify it.`][n];
+  if(category==='negotiation')return[`Eric used “${quotedTerm}” before explaining the commercial reason for his position.`,`The other party became more receptive after Eric used “${quotedTerm}” and proposed a next step.`,`Use “${quotedTerm}” only after you have identified the real constraint.`][n];
+  if(category==='everyday')return[`On the phone, Eric used “${quotedTerm}” and waited for a complete answer.`,`The representative responded clearly after Eric used “${quotedTerm}” in context.`,`Eric repeated “${quotedTerm}” in the follow-up message to avoid another misunderstanding.`][n];
+  return[`Eric began his recommendation with “${quotedTerm}” and then cited the supporting evidence.`,`During the client meeting, “${quotedTerm}” made the trade-off easier to follow.`,`Use “${quotedTerm}” to connect the conclusion to the assumption behind it.`][n];
 };
 const phrasePartners=(term:string,category:Category)=>{if(/[?]$/.test(term))return[term,`Ask directly: ${term}`,`Confirm in writing: ${term}`];if(category==='real_estate')return[`confirm ${term}`,`review ${term}`,`discuss ${term}`];if(category==='negotiation')return[term,`${term} before making a concession`,`${term} while keeping the relationship constructive`];if(category==='everyday')return[term,`use “${term}” on the phone`,`use “${term}” in a polite follow-up`];return[term,`Pattern: ${term} …`,`Use “${term}” to connect the next claim.`];};
 
-const units = Object.entries(catalog).flatMap(([category, terms]) => terms.map((term, index) => ({
+const units = Object.entries(catalog).flatMap(([category, terms]) => terms.map((term, index) => {const collocations=category==='general' ? generalPartners[index] : phrasePartners(term,category as Category);return({
   id:`unit-${String(Object.values(catalog).slice(0, Object.keys(catalog).indexOf(category)).flat().length + index + 1).padStart(3,'0')}`,
   unitType:unitType(term,category as Category,index), term, normalizedTerm:term.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(), lemma:term.split(' ')[0].toLowerCase(), partOfSpeech:term.includes(' ') ? 'phrase' : 'word',
   ipa:null, cefr:category === 'everyday' ? 'B1' : 'B2', priority:priority.has(term) ? 1 : 0.68, register:category === 'negotiation' || category === 'real_estate' ? 'business' : 'neutral', domains:[category],
-  definitionEn:definition(term, category as Category,index), definitionZh:zhTerms[category as Category][index], collocations:category==='general' ? generalPartners[index] : phrasePartners(term,category as Category),
-  examples:[0,1,2].map((n)=>({text:example(term,category as Category,n),domain:category})), confusions:[{note:'Check meaning and register in context; do not translate word for word.'}], source:'seed', contentVersion:1, active:true
-})));
+  definitionEn:definition(term, category as Category,index), definitionZh:zhTerms[category as Category][index], collocations,
+  examples:[0,1,2].map((n)=>({text:example(term,category as Category,n,collocations),domain:category})), confusions:[{note:confusionNotes[term]??`Use “${term}” for this precise meaning: ${definition(term,category as Category,index)}. Check its normal collocations before translating word for word.`}], source:'seed', contentVersion:2, active:true
+})}));
 
 if (units.length !== 240) throw new Error(`Expected 240 units, got ${units.length}`);
 
@@ -76,10 +106,33 @@ const scenarioGroups: Array<[Category,string[]]> = [
   ['everyday',['Networking event opening','Joining a small-talk circle','Following up after meeting','Telling a short personal story','Ending a conversation naturally']],
   ['analysis',['Three-minute market outlook','Defending a recommendation','Comparing investment risks','Responding to skeptical questions','Impromptu leadership update']]
 ];
+const realEstateScenarioTargets:Record<string,string[]>={
+  'Confirming availability':['Is the space still available?','asking rent','showing availability','move-in timeline'],
+  'Clarifying NNN and CAM':['asking rent','triple net charges','common area maintenance','property taxes'],
+  'Scheduling a showing':['showing availability','listing agent','space requirement','move-in timeline'],
+  'Explaining tenant use':['permitted use','zoning compliance','certificate of occupancy','exclusive-use clause'],
+  'Discussing space requirements':['space requirement','room to subdivide','clear ceiling height','parking ratio'],
+  'Asking about subdivision':['room to subdivide','space requirement','delivery condition','tenant improvement allowance'],
+  'Comparing two properties':['comparable properties','market rent','occupancy rate','move-in timeline'],
+  'Responding to listing-agent pressure':['listing agent','due diligence period','letter of intent','without setting a precedent'],
+  'Explaining a rent premium':['asking rent','market rent','justify the premium','tenant improvement allowance'],
+  'Presenting an LOI':['letter of intent','lease term','lease commencement date','subject to approval'],
+  'Negotiating concessions':['landlord concession','rent abatement','tenant improvement allowance','renewal option'],
+  'Confirming delivery condition':['delivery condition','as-is condition','vanilla shell','turnkey space'],
+  'Discussing signage':['signage opportunity','traffic count','exclusive-use clause','zoning compliance'],
+  'Clarifying parking and loading':['parking ratio','loading dock access','drive-in door','space requirement'],
+  'Reviewing permitted use':['permitted use','zoning compliance','certificate of occupancy','exclusive-use clause'],
+  'Handling a showing cancellation':['showing availability','Could we reschedule?','listing agent','move-in timeline'],
+  'Explaining cap rate to a client':['capitalization rate','net operating income','operating expenses','comparable properties'],
+  'Discussing due diligence':['due diligence period','environmental due diligence','property condition assessment','title review'],
+  'Following up after a tour':['showing availability','space requirement','asking rent','What is the next step?'],
+  'Managing a landlord complaint':['lease term','maintenance request','utility responsibility','preserve the relationship'],
+};
+const targetsForScenario=(title:string,domain:Category,index:number)=>domain==='real_estate'?(realEstateScenarioTargets[title]??catalog.real_estate.slice(index,index+4)):catalog[domain].slice(index%Math.max(1,catalog[domain].length-4),index%Math.max(1,catalog[domain].length-4)+4);
 const scenarios = scenarioGroups.flatMap(([domain,titles]) => titles.map((title,index)=>({
   id:`scenario-${String(scenarioGroups.slice(0,scenarioGroups.findIndex((g)=>g[1]===titles)).reduce((n,g)=>n+g[1].length,0)+index+1).padStart(2,'0')}`,
   title, domain, difficulty:index % 4 === 0 ? 'B1+' : 'B2', aiRole:domain === 'real_estate' ? 'listing agent or client' : domain === 'everyday' ? 'service representative or acquaintance' : 'business counterpart',
-  userObjective:`Complete the ${title.toLowerCase()} conversation clearly, naturally, and professionally.`, targetUnits:catalog[domain].slice(index % 20,index % 20 + 4), hiddenComplication:'The other person gives one incomplete or ambiguous answer that requires a follow-up question.', maxTurns:8,
+  userObjective:`Complete the ${title.toLowerCase()} conversation clearly, naturally, and professionally.`, targetUnits:targetsForScenario(title,domain,index), hiddenComplication:'The other person gives one incomplete or ambiguous answer that requires a follow-up question.', maxTurns:8,
   rubric:{taskCompletion:5,clarity:5,grammar:5,lexicalRange:5,naturalness:5,pragmatics:5,fluency:5}, completionCondition:'The objective is confirmed and a concrete next step is agreed.', source:'seed', active:true
 })));
 if (scenarios.length !== 50) throw new Error(`Expected 50 scenarios, got ${scenarios.length}`);

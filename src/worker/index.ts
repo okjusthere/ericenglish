@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { api } from './routes/api';
 import { runScheduled } from './scheduled';
+import { requireOwner } from './services/owner';
 export { CurriculumBootstrapWorkflow } from './workflows/curriculum-bootstrap';
 export { SessionAnalysisWorkflow } from './workflows/session-analysis';
 export { WeeklyReportWorkflow } from './workflows/weekly-report';
@@ -27,6 +28,12 @@ app.use('*',async(c,next)=>{
     headers.set('cross-origin-opener-policy','same-origin'); headers.set('cross-origin-resource-policy','same-origin'); headers.set('x-request-id',requestId);
     console.log(JSON.stringify({message:'request',requestId,method:c.req.method,path:new URL(c.req.url).pathname,status:c.res.status,durationMs:Date.now()-started}));
   }
+});
+
+app.use('/api/*',async(c,next)=>{
+  const owner=requireOwner(c.req,c.env);
+  if(!owner.ok)return c.json({error:owner.error,requestId:c.get('requestId')},owner.status);
+  await next();
 });
 
 app.get('/health',async(c)=>{const database=await c.env.DB.prepare('SELECT 1 ok').first<{ok:number}>().catch(()=>null);return c.json({status:database?.ok===1?'ok':'degraded',database:Boolean(database),r2:Boolean(c.env.AUDIO_BUCKET),workflows:Boolean(c.env.SESSION_ANALYSIS),environment:c.env.APP_ENV,time:new Date().toISOString()},{status:database?200:503});});
