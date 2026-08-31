@@ -91,7 +91,7 @@ api.post('/realtime/sessions/:id/events',async(c)=>{
   if(!session||session.id!==sessionId)return c.json({error:'Session not found.'},404);
   const inserted=await c.env.DB.prepare('INSERT OR IGNORE INTO realtime_events(event_id,session_id,event_type,text,duration_ms,payload_json) VALUES(?,?,?,?,?,?)').bind(input.eventId,sessionId,input.eventType,input.text??null,input.durationMs??null,JSON.stringify(input.payload??{})).run();
   if(!inserted.meta.changes)return c.json({ok:true,deduplicated:true});
-  if(input.eventType==='user_transcript'||input.eventType==='assistant_transcript'){
+  if((input.eventType==='user_transcript'||input.eventType==='assistant_transcript')&&input.text?.trim()){
     const count=await c.env.DB.prepare('SELECT COUNT(*) count FROM practice_turns WHERE session_id=?').bind(sessionId).first<{count:number}>();
     try{await c.env.DB.prepare('INSERT INTO practice_turns(id,session_id,turn_index,speaker,text,duration_ms) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),sessionId,count?.count??0,input.eventType==='user_transcript'?'user':'assistant',input.text??'',input.durationMs??null).run();}catch{/* another event may have claimed this turn index; the event itself remains durable */}
   }

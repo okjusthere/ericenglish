@@ -32,9 +32,12 @@ describe('Azure realtime contract', () => {
     vi.stubGlobal('fetch', fetchMock);
     const events: string[] = []; const transport = new RealtimeTransport({ sessionId: 'session-1', mode: 'fluency', onEvent: (event) => events.push(event.eventId) });
     await transport.start();
-    const event = JSON.stringify({ event_id: 'same-event', type: 'response.audio_transcript.done', transcript: 'Hello' });
+    const delta = JSON.stringify({ event_id: 'delta-event', type: 'response.output_audio_transcript.delta', delta: 'Hel' });
+    channel!.onmessage?.({ data: delta });
+    const event = JSON.stringify({ event_id: 'same-event', type: 'response.output_audio_transcript.done', transcript: 'Hello' });
     channel!.onmessage?.({ data: event }); channel!.onmessage?.({ data: event });
     await vi.waitFor(() => expect(events.filter((id) => id === 'same-event')).toHaveLength(1));
+    expect(events).not.toContain('delta-event');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/events'))).toBe(true);
     transport.interrupt(); expect(channel!.send).toHaveBeenCalledWith(JSON.stringify({ type: 'response.cancel' }));
     await transport.refreshToken(); expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('client-secret'))).toHaveLength(2);

@@ -128,9 +128,12 @@ export class RealtimeTransport {
     const eventId = typeof data.event_id === 'string' ? data.event_id : typeof data.id === 'string' ? data.id : crypto.randomUUID();
     if (this.seenEvents.has(eventId)) return;
     const type = String(data.type ?? '');
-    const eventType: RealtimeEventType | null = type.includes('input_audio_transcription') ? 'user_transcript' : type.includes('audio_transcript') || type.includes('text.done') ? 'assistant_transcript' : type === 'session.finished' ? 'session_finished' : null;
+    const userTranscriptDone = type === 'conversation.item.input_audio_transcription.completed' || type === 'conversation.item.input_audio_transcription.done';
+    const assistantTranscriptDone = type === 'response.output_audio_transcript.done' || type === 'response.audio_transcript.done' || type === 'response.output_text.done' || type === 'response.text.done';
+    const eventType: RealtimeEventType | null = userTranscriptDone ? 'user_transcript' : assistantTranscriptDone ? 'assistant_transcript' : type === 'session.finished' ? 'session_finished' : null;
     if (!eventType) return;
     const text = typeof data.transcript === 'string' ? data.transcript : typeof data.text === 'string' ? data.text : undefined;
+    if ((eventType === 'user_transcript' || eventType === 'assistant_transcript') && !text?.trim()) return;
     this.emit({ eventId, eventType, text, payload: data });
   }
 
