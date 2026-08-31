@@ -25,6 +25,7 @@ export const assessmentResponseSchema = z.object({
   hintLevel: z.number().int().min(0).max(3).default(0),
   correct: z.boolean().optional(),
   audioKey: z.string().max(500).optional(),
+  pronunciation: z.record(z.string(), z.unknown()).optional(),
 });
 export const assessmentEvaluationSchema = z.object({
   writing: z.number().min(1).max(5), speaking: z.number().min(1).max(5), listening: z.number().min(1).max(5),
@@ -42,6 +43,18 @@ export const speakingTurnSchema = z.object({
   text: z.string().min(1).max(6000),
   durationMs: z.number().int().min(0).max(1_800_000).optional(),
 });
+export const realtimeClientSecretSchema = z.object({
+  sessionId: z.string().min(1).max(100),
+  mode: z.enum(['fluency', 'drill', 'monologue', 'objection', 'phone', 'small_talk']),
+  durationSeconds: z.number().int().min(1).max(900).default(300),
+}).strict();
+export const realtimeEventSchema = z.object({
+  eventId: z.string().min(1).max(200),
+  eventType: z.enum(['user_transcript', 'assistant_transcript', 'session_started', 'session_finished']),
+  text: z.string().max(6000).optional(),
+  durationMs: z.number().int().min(0).max(900_000).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
+}).strict();
 export const writingRequestSchema = z.object({
   taskType: z.enum(['text_30s', 'followup_2m', 'explanation_5m', 'custom']).default('custom'),
   prompt: z.string().min(1).max(2000),

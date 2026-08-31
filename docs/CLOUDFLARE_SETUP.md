@@ -39,6 +39,20 @@ AI_MODEL_STT=@cf/openai/whisper-large-v3-turbo
 AI_MODEL_TTS=                 # browser speech synthesis fallback
 ```
 
+Azure voice is opt-in. After storing the key as a Cloudflare Secret, set the flags
+and endpoint variables with Wrangler (never commit the key):
+
+```bash
+pnpm exec wrangler secret put AZURE_OPENAI_API_KEY --name eric-english-os
+pnpm exec wrangler secret put AZURE_SPEECH_KEY --name eric-english-os # only for pronunciation
+```
+
+Use `SPEECH_MODE=azure_tts` for cached server pronunciation while retaining browser
+fallback. Enable `REALTIME_SPEAK_ENABLED=true` only after the Azure realtime
+deployment and signaling path have been tested. The Worker requires the exact
+`cf-access-authenticated-user-email` owner identity for TTS, realtime token minting,
+event ingestion, and audio retrieval even when a request bypasses the Access edge.
+
 If a future provider requires OpenAI-compatible Gateway BYOK or direct mode, switch deliberately and set only the necessary Worker secret:
 
 ```bash

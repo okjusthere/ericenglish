@@ -35,6 +35,7 @@
     "APP_ENV": "production",
     "APP_TIMEZONE": "America/New_York",
     "SINGLE_USER_ID": "primary",
+    "OWNER_EMAIL": "eric.wei@kevv.ai",
     "AUDIO_RETENTION_DAYS": "30",
     "DEFAULT_DAILY_MINUTES": "60",
     "AI_PROVIDER_MODE": "workers_ai",
@@ -48,7 +49,19 @@
     "AI_MODEL_CONTENT": "@cf/qwen/qwen3-30b-a3b-fp8",
     "AI_MODEL_STT": "@cf/openai/whisper-large-v3-turbo",
     "AI_MODEL_TTS": "",
-    "MONTHLY_AI_BUDGET_USD": "25"
+    "MONTHLY_AI_BUDGET_USD": "25",
+    "SPEECH_MODE": "azure_tts",
+    "REALTIME_SPEAK_ENABLED": "true",
+    "PRONUNCIATION_ASSESSMENT_ENABLED": "false",
+    "AZURE_OPENAI_ENDPOINT": "https://kevvrealtime-resource.cognitiveservices.azure.com",
+    "AZURE_OPENAI_API_VERSION": "2025-03-01-preview",
+    "AZURE_REALTIME_DEPLOYMENT": "gpt-realtime-2.1",
+    "AZURE_TTS_DEPLOYMENT": "gpt-4o-mini-tts",
+    "AZURE_TRANSCRIBE_DEPLOYMENT": "gpt-4o-mini-transcribe",
+    "AZURE_TEXT_DEPLOYMENT": "gpt-5.6-terra",
+    "AZURE_TTS_VOICE": "alloy",
+    "AZURE_SPEECH_ENDPOINT": "",
+    "AZURE_SPEECH_VOICE": "en-US-AvaMultilingualNeural"
   },
   "observability": {
     "enabled": true,

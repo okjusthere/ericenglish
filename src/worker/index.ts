@@ -21,7 +21,9 @@ app.use('*',async(c,next)=>{
   } finally {
     const headers=c.res.headers;
     headers.set('x-content-type-options','nosniff'); headers.set('x-frame-options','DENY'); headers.set('referrer-policy','no-referrer'); headers.set('permissions-policy','camera=(), geolocation=(), payment=()');
-    headers.set('content-security-policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    let realtimeOrigin='';
+    if(c.env.REALTIME_SPEAK_ENABLED==='true'&&c.env.AZURE_OPENAI_ENDPOINT){try{const origin=new URL(c.env.AZURE_OPENAI_ENDPOINT).origin;if(origin.startsWith('https://'))realtimeOrigin=` ${origin}`;}catch{/* invalid endpoint stays blocked by CSP */}}
+    headers.set('content-security-policy',`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'${realtimeOrigin}; font-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`);
     headers.set('cross-origin-opener-policy','same-origin'); headers.set('cross-origin-resource-policy','same-origin'); headers.set('x-request-id',requestId);
     console.log(JSON.stringify({message:'request',requestId,method:c.req.method,path:new URL(c.req.url).pathname,status:c.res.status,durationMs:Date.now()-started}));
   }

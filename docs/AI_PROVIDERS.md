@@ -32,6 +32,26 @@ AI_MODEL_TTS            # empty in production; browser speech synthesis is used
 
 `AI_GATEWAY_API_BASE` and `AI_GATEWAY_BYOK_ALIAS` are used only by the optional OpenAI-compatible Gateway modes.
 
+## Optional Azure voice stack
+
+The application also contains a production Azure OpenAI adapter. It is disabled by
+default so a missing Azure credential never breaks the reliable browser-speech and
+Workers AI paths. Set `SPEECH_MODE=azure_tts` to enable server TTS (with browser
+fallback), and set `AI_PROVIDER_MODE=azure_openai` only when Azure should also handle
+text and transcription. Realtime Speak is separately gated by
+`REALTIME_SPEAK_ENABLED=true`; pronunciation assessment is independently gated by
+`PRONUNCIATION_ASSESSMENT_ENABLED=true` and requires an Azure Speech endpoint/key.
+
+Non-secret variables are `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION`,
+`AZURE_REALTIME_DEPLOYMENT`, `AZURE_TTS_DEPLOYMENT`, `AZURE_TRANSCRIBE_DEPLOYMENT`,
+`AZURE_TEXT_DEPLOYMENT`, `AZURE_TTS_VOICE`, `AZURE_SPEECH_ENDPOINT`, and
+`AZURE_SPEECH_VOICE`. Store `AZURE_OPENAI_API_KEY` (and, when pronunciation is
+enabled, `AZURE_SPEECH_KEY`) only with `wrangler secret put`; they are never returned
+to the browser or included in logs. TTS responses are normalized and cached in R2
+under a deterministic key containing text, voice, speed, model, format, and version.
+Cache misses are budget checked and provider failures automatically return the
+browser SpeechSynthesis fallback.
+
 ## Validation and cost
 
 Every structured task has a Zod schema and one explicit repair retry. The application records provider/model/token estimates and enforces daily call, strong-model, and monthly estimated-cost limits in D1. Personal content is never semantically cached. Before Access exists, run `pnpm ai:health` after changing routes or keys; afterward use the health control in the owner-authenticated Settings screen.
